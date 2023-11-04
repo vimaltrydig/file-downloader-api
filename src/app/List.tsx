@@ -1,11 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 
-export default function List() {
-  const [files, setFiles] = useState<string[]>([]);
+export default function List({
+  files,
+  hostName,
+  id,
+}: {
+  files: string[];
+  hostName: string;
+  id: string;
+}) {
+  // State variable to store selected files
   const [selectedFiles, setSelectedFiles] = useState<string[]>([]);
 
+  // Function to handle checkbox change
   const handleCheckboxChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
       setSelectedFiles((prevState) => [...prevState, e.target.value]);
@@ -16,26 +25,17 @@ export default function List() {
     }
   };
 
-  const hostName = process.env.NEXTAUTH_URL;
-  const containerName = process.env.NEXT_PUBLIC_STORAGE_CONTAINER_NAME || "";
-
+  // Function to handle download button click
   const handleDownload = () => {
     if (selectedFiles.length > 0) {
       setSelectedFiles([]);
 
-      const downloadUrl = new URL(`${hostName}/api/downloadFile`);
-      downloadUrl.searchParams.set("id", containerName);
+      const downloadUrl = new URL(`${hostName}/api/downloadFiles`);
+      downloadUrl.searchParams.set("id", id);
       downloadUrl.searchParams.set("files", JSON.stringify(selectedFiles));
       window.location.href = downloadUrl.toString();
     }
   };
-
-  useEffect(() => {
-    fetch(`${hostName}/api/getFiles?id=${containerName}`)
-      .then((response) => response.json())
-      .then((data) => setFiles(data.result))
-      .catch((error) => console.error(error));
-  }, []);
 
   return (
     <div className="flex  w-full flex-col items-center gap-5 justify-center">
@@ -47,22 +47,29 @@ export default function List() {
           </tr>
         </thead>
         <tbody>
-          {files.map((file) => (
-            <tr
-              key={file}
-              className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
-            >
-              <td className="w-4 p-4">
-                <input
-                  className="form-checkbox"
-                  type="checkbox"
-                  value={file}
-                  onChange={handleCheckboxChange}
-                />
-              </td>
-              <td className="px-6 py-4">{file}</td>
-            </tr>
-          ))}
+          {files.length > 0 &&
+            files.map((file) => (
+              <tr
+                key={file}
+                className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600"
+              >
+                <td className="w-4 p-4">
+                  <input
+                    className="form-checkbox"
+                    type="checkbox"
+                    value={file}
+                    onChange={handleCheckboxChange}
+                  />
+                </td>
+                <td className="px-6 py-4">{file}</td>
+              </tr>
+            ))}
+          {files.length === 0 && (
+            <>
+              <td className="w-4 p-4"></td>
+              <td className="px-6 py-4">No files</td>
+            </>
+          )}
         </tbody>
       </table>
       <button
@@ -81,16 +88,4 @@ export default function List() {
       </button>
     </div>
   );
-}
-
-export async function getServerSideProps(context: any) {
-  const hostName = process.env.NEXTAUTH_URL;
-  const containerName = process.env.AZURE_STORAGE_CONTAINER_NAME;
-
-  console.log(hostName);
-  console.log(containerName);
-
-  const res = await fetch(`${hostName}/api/getFiles?id=${containerName}`);
-  const files = await res.json();
-  return { props: { files } };
 }

@@ -1,49 +1,36 @@
-import {
-  BlobServiceClient,
-  ContainerClient,
-  StorageSharedKeyCredential,
-} from "@azure/storage-blob";
 import { NextApiRequest, NextApiResponse } from "next";
+import { getAzureContainerClient } from "@/utils/AzureUtils";
+import type { ContainerClient } from "@azure/storage-blob";
 
 export async function handler(req: NextApiRequest, res: NextApiResponse) {
   const params = req.query;
 
-  let blobFiles: string[] = [];
-
-  const accountName = process.env.AZURE_STORAGE_ACCOUNT_NAME || "";
-  const accountKey = process.env.AZURE_STORAGE_ACCOUNT_KEY || "";
-
-  if (!accountName || !accountKey) {
-    res.status(404).json({
-      status: 404,
-      message: "Azure storage account settings missing in env file!",
-    });
-  }
-
+  // get container name from query params
   const containerName = params.id as string;
 
+  // if container name is missing return error
   if (containerName === undefined) {
-    res.status(404).json({
+    return res.status(404).json({
       status: 404,
       message: "id/container name is mandatory field for getFiles!",
     });
   }
 
+  // if request method is GET
   if (req.method == "GET") {
-    const sharedKeyCredential = new StorageSharedKeyCredential(
-      accountName,
-      accountKey
-    );
+    let blobFiles: string[] = [];
 
-    const blobService = new BlobServiceClient(
-      `https://${accountName}.blob.core.windows.net`,
-      sharedKeyCredential
-    );
+    const containerClient: ContainerClient | undefined =
+      getAzureContainerClient(containerName);
+
+    if (!containerClient) {
+      return res.status(404).json({
+        status: 404,
+        message: "Unable to connect with storage account. Aborting!",
+      });
+    }
 
     try {
-      const containerClient: ContainerClient =
-        blobService.getContainerClient(containerName);
-
       for await (const blob of containerClient.listBlobsFlat()) {
         if (blob.name && blob.properties.createdOn !== undefined) {
           blobFiles.push(blob.name);
